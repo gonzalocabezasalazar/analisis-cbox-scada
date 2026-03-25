@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import io
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Detección de Fusibles - SCADA Solar", layout="wide", page_icon="☀️")
@@ -211,14 +212,27 @@ if archivos_subidos:
         st.error(f"Se encontraron anomalías en {len(df_problemas)} cajas agrupadas.")
         st.dataframe(df_problemas, use_container_width=True)
         
-        # Botón de descarga para el técnico
-        csv = df_problemas.to_csv(index=False).encode('utf-8')
+# --- REEMPLAZA ESTE BLOQUE ---
+        # csv = df_problemas.to_csv(index=False).encode('utf-8')
+        # st.download_button(
+        #     label="Descargar Orden de Trabajo (CSV)",
+        #     data=csv,
+        #     file_name='orden_trabajo_fusibles.csv',
+        #     mime='text/csv',
+        # )
+
+        # --- POR ESTE NUEVO BLOQUE DE EXCEL ---
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df_problemas.to_excel(writer, index=False, sheet_name='Fallas_Detectadas')
+        
         st.download_button(
-            label="Descargar Orden de Trabajo (CSV)",
-            data=csv,
-            file_name='orden_trabajo_fusibles.csv',
-            mime='text/csv',
+            label="📥 Descargar Orden de Trabajo (Excel)",
+            data=buffer.getvalue(),
+            file_name='orden_trabajo_fusibles.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
+        
         import plotly.express as px
 
     # === VISUALIZACIÓN: MAPA DE CALOR (HEATMAP) ===

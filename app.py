@@ -7,29 +7,36 @@ import io
 st.set_page_config(page_title="Detección de Fusibles - SCADA Solar", layout="wide", page_icon="☀️")
 
 # --- BARRA LATERAL: GEMELO DIGITAL DE LA PLANTA ---
-st.sidebar.header("⚙️ Configuración de Planta")
-plant_name = st.sidebar.text_input("Nombre de la Planta", "Planta Roble")
-potencia_mw = st.sidebar.number_input("Potencia Total (MW)", min_value=1.0, value=9.0)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔌 Datos del Panel y Strings")
-string_default = st.sidebar.number_input("Strings por CBox (Estándar)", min_value=1, value=26)
-paneles_por_string = st.sidebar.number_input("Paneles por String", min_value=1, value=30)
-panel_imp = st.sidebar.number_input("Corriente Imp del Panel (A)", min_value=1.0, value=9.5)
-
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚠️ Cajas con Configuración Especial")
-st.sidebar.caption("Ingresa las excepciones. Formato: Inversor-CBox:Strings")
-# Dejamos precargada tu configuración de Roble
-excepciones_input = st.sidebar.text_area("Excepciones", "1-04:18\n2-07:17\n3-04:17")
+st.sidebar.caption("Modifica la tabla para añadir cajas con una cantidad distinta de strings.")
 
-# Procesamos las excepciones dinámicamente en un diccionario
+# 1. Creamos un DataFrame base con tus valores por defecto
+datos_excepciones_base = pd.DataFrame([
+    {"ID Caja (Ej: 1-04)": "1-04", "N° Strings": 18},
+    {"ID Caja (Ej: 1-04)": "2-07", "N° Strings": 17},
+    {"ID Caja (Ej: 1-04)": "3-04", "N° Strings": 17}
+])
+
+# 2. Mostramos la tabla interactiva (el usuario puede agregar/borrar filas)
+df_excepciones_editado = st.sidebar.data_editor(
+    datos_excepciones_base,
+    num_rows="dynamic", # Permite al usuario agregar nuevas filas con un botón "+"
+    use_container_width=True,
+    hide_index=True
+)
+
+# 3. Procesamos la tabla visual y la convertimos en el diccionario que usa el motor matemático
 cajas_especiales = {}
-if excepciones_input:
-    for linea in excepciones_input.split('\n'):
-        if ':' in linea:
-            cbox, strings = linea.split(':')
-            cajas_especiales[cbox.strip()] = int(strings.strip())
+for index, row in df_excepciones_editado.iterrows():
+    cbox_id = str(row["ID Caja (Ej: 1-04)"]).strip()
+    try:
+        strings_val = int(row["N° Strings"])
+        # Evitamos agregar filas vacías si el usuario le da al "+" pero no escribe nada
+        if cbox_id and cbox_id != "nan" and cbox_id != "None":
+            cajas_especiales[cbox_id] = strings_val
+    except (ValueError, TypeError):
+        pass # Ignoramos filas con errores tipográficos
 
 # --- FUNCIONES MATEMÁTICAS CORE ---
 

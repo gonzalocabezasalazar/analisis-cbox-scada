@@ -267,15 +267,15 @@ if archivos_subidos:
     # 1. Filtro interactivo por Inversor
     inversor_seleccionado = st.selectbox("⚡ Selecciona un Inversor para visualizar:", inversores_detectados)
 
-    if inversor_seleccionado:
+  if inversor_seleccionado:
         # Preparamos la matriz de datos exclusiva para el Heatmap
         cajas_del_inversor = [c for c in cbox_nombres if c.split(' ')[1].split('-')[0] == inversor_seleccionado]
         df_heatmap_raw = df_analisis.loc[cajas_del_inversor].copy()
         
-        # DataFrame vacío para guardar los porcentajes
-        df_heatmap_pct = pd.DataFrame(index=df_heatmap_raw.index, columns=df_heatmap_raw.columns)
+        # DataFrame vacío para guardar los valores
+        df_heatmap_strings = pd.DataFrame(index=df_heatmap_raw.index, columns=df_heatmap_raw.columns)
         
-        # Calculamos la desviación diaria (para ver si la falla es de 1 día o de los 3)
+        # Calculamos la desviación diaria en STRINGS
         for dia in df_heatmap_raw.columns:
             i_units_dia = []
             
@@ -288,36 +288,37 @@ if archivos_subidos:
             # Sacamos la Referencia Local del día (P90)
             p90_dia = pd.Series(i_units_dia).quantile(0.90)
             
-            # Calculamos la desviación en % de cada caja vs su expectativa
+            # Calculamos cuántos strings le faltan o sobran a cada caja
             for cbox in df_heatmap_raw.index:
                 nomenclatura = cbox.split(' ')[1]
                 hilos = cajas_especiales.get(nomenclatura, string_default)
                 corriente_real = df_heatmap_raw.loc[cbox, dia]
                 corriente_esperada = p90_dia * hilos
                 
-                if corriente_esperada > 0:
-                    desviacion = ((corriente_real - corriente_esperada) / corriente_esperada) * 100
+                if p90_dia > 0:
+                    diferencia_A = corriente_real - corriente_esperada
+                    # Dividimos la diferencia en Amperios por lo que aporta 1 string sano
+                    desviacion_strings = diferencia_A / p90_dia
                 else:
-                    desviacion = 0
+                    desviacion_strings = 0
                     
-                df_heatmap_pct.loc[cbox, dia] = round(desviacion, 1)
+                df_heatmap_strings.loc[cbox, dia] = round(desviacion_strings, 1)
         
-        # Limpiamos los nombres del Eje Y para que sean más legibles (CBox 1-01 en vez de String 1-01)
-        df_heatmap_pct.index = [c.replace('String', 'CBox') for c in df_heatmap_pct.index]
+        # Limpiamos los nombres del Eje Y para que sean más legibles
+        df_heatmap_strings.index = [c.replace('String', 'CBox') for c in df_heatmap_strings.index]
         
         # 2. Renderizado del Gráfico con Plotly
-        # Usamos la escala RdYlGn (Red-Yellow-Green). Invertida implícitamente por el orden de los datos.
         fig = px.imshow(
-            df_heatmap_pct,
+            df_heatmap_strings,
             text_auto=True,
             aspect="auto",
-            color_continuous_scale="RdYlGn", # Rojo (Bajo rendimiento) a Verde (Rendimiento Óptimo)
-            zmin=-10,  # Saturamos el rojo si pierde más del 10% (Falla grave)
-            zmax=2,    # Saturamos el verde si genera igual o un 2% más que el promedio
-            labels=dict(x="Día Analizado", y="Combiner Box", color="Desviación (%)"),
-            title=f"Mapa de Desviación Energética - Inversor {inversor_seleccionado}"
+            color_continuous_scale="RdYlGn", 
+            zmin=-1.5,  # Un déficit de -1.5 strings o peor saturará en Rojo intenso
+            zmax=0.5,   # Un exceso de +0.5 strings saturará en Verde oscuro
+            labels=dict(x="Día Analizado", y="Combiner Box", color="Desv. (Strings)"),
+            title=f"Mapa de Desviación (En cantidad de Strings) - Inversor {inversor_seleccionado}"
         )
         
-        # Ajustamos el tamaño para que sea fácil de leer
+        # Ajustamos el tamaño
         fig.update_layout(height=600)
         st.plotly_chart(fig, use_container_width=True)

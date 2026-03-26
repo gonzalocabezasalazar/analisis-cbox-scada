@@ -170,23 +170,29 @@ if archivos_subidos:
             hilos = row['Strings Configurados']
             corriente_real = row['Corriente Pico (Prom. 3 Días)']
             
-            # ¿Cuánto DEBERÍA generar esta caja según sus vecinas?
+# ¿Cuánto DEBERÍA generar esta caja según sus vecinas?
             corriente_esperada = promedio_local_i_unit * hilos
             diferencia = corriente_real - corriente_esperada
             
-            # Estimación de fusibles operados
-            # Dividimos la diferencia total por lo que aporta un string sano.
-            strings_perdidos = round(abs(diferencia) / promedio_local_i_unit, 1)
+            # Calculamos la magnitud equivalente en "strings"
+            magnitud_desviacion = abs(diferencia) / promedio_local_i_unit
             
-            # Lógica de Alertas (Diagnóstico)
+            # Lógica de Alertas (Diagnóstico Corregido)
             estado = "✅ Saludable"
-            if strings_perdidos >= 1.8:
-                estado = f"🚨 Crítico: Faltan ~{round(strings_perdidos)} strings"
-            elif strings_perdidos >= 0.8:
-                estado = f"🔴 Alerta: Falta ~1 string"
-            elif strings_perdidos >= 0.4:
-                estado = f"🟡 Precaución: Desviación severa (suciedad o sombra)"
-                
+            
+            if diferencia < 0:
+                # 📉 DÉFICIT DE CORRIENTE (Fusibles Operados o Sombras)
+                if magnitud_desviacion >= 1.8:
+                    estado = f"🚨 Crítico: Faltan ~{round(magnitud_desviacion)} strings"
+                elif magnitud_desviacion >= 0.8:
+                    estado = f"🔴 Alerta: Falta ~1 string"
+                elif magnitud_desviacion >= 0.4:
+                    estado = f"🟡 Precaución: Desviación a la baja (suciedad o sombra)"
+            elif diferencia > 0:
+                # 📈 EXCESO DE CORRIENTE (Sobrecorriente / Sensor descalibrado)
+                if magnitud_desviacion >= 0.8:
+                    estado = f"⚡ Aviso: Sobrecorriente (+{round(diferencia, 1)} A)"
+                # Si la sobrecorriente es muy leve (< 0.8 strings), se queda como ✅ Saludable  
             diagnostico_final.append({
                 'ID Caja': cbox_id,
                 'Inversor': inversor,

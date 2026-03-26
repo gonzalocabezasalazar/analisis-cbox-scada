@@ -259,66 +259,67 @@ if archivos_subidos:
         
         import plotly.express as px
 
-    # === VISUALIZACIÓN: MAPA DE CALOR (HEATMAP) ===
-    st.markdown("---")
-    st.subheader("🗺️ Mapa de Calor Evolutivo")
-    st.caption("Visualiza la consistencia de la falla a lo largo de los días. Los valores representan la desviación porcentual (%) respecto al rendimiento esperado local. Rojos intensos indican posibles fusibles operados.")
+  # === VISUALIZACIÓN: MAPA DE CALOR (HEATMAP) ===
+st.markdown("---")
+st.subheader("🗺️ Mapa de Calor Evolutivo")
 
-    # 1. Filtro interactivo por Inversor
-    inversor_seleccionado = st.selectbox("⚡ Selecciona un Inversor para visualizar:", inversores_detectados)
+# 1. Filtro interactivo por Inversor
+inversor_seleccionado = st.selectbox("⚡ Selecciona un Inversor para visualizar:", inversores_detectados)
 
-  if inversor_seleccionado:
-        # Preparamos la matriz de datos exclusiva para el Heatmap
-        cajas_del_inversor = [c for c in cbox_nombres if c.split(' ')[1].split('-')[0] == inversor_seleccionado]
-        df_heatmap_raw = df_analisis.loc[cajas_del_inversor].copy()
+if inversor_seleccionado:
+    # Preparamos la matriz de datos exclusiva para el Heatmap
+    cajas_del_inversor = [c for c in cbox_nombres if c.split(' ')[1].split('-')[0] == inversor_seleccionado]
+    df_heatmap_raw = df_analisis.loc[cajas_del_inversor].copy()
+    
+    # DataFrame vacío para guardar los valores
+    df_heatmap_strings = pd.DataFrame(index=df_heatmap_raw.index, columns=df_heatmap_raw.columns)
+    
+    # Calculamos la desviación diaria en STRINGS
+    for dia in df_heatmap_raw.columns:
+        i_units_dia = []
         
-        # DataFrame vacío para guardar los valores
-        df_heatmap_strings = pd.DataFrame(index=df_heatmap_raw.index, columns=df_heatmap_raw.columns)
+        # Normalizamos todas las cajas del inversor en ese día
+        for cbox in df_heatmap_raw.index:
+            nomenclatura = cbox.split(' ')[1]
+            hilos = cajas_especiales.get(nomenclatura, string_default)
+            i_units_dia.append(df_heatmap_raw.loc[cbox, dia] / hilos)
         
-        # Calculamos la desviación diaria en STRINGS
-        for dia in df_heatmap_raw.columns:
-            i_units_dia = []
+        # Sacamos la Referencia Local del día (P90)
+        p90_dia = pd.Series(i_units_dia).quantile(0.90)
+        
+        # Calculamos cuántos strings le faltan o sobran a cada caja
+        for cbox in df_heatmap_raw.index:
+            nomenclatura = cbox.split(' ')[1]
+            hilos = cajas_especiales.get(nomenclatura, string_default)
+            corriente_real = df_heatmap_raw.loc[cbox, dia]
+            corriente_esperada = p90_dia * hilos
             
-            # Normalizamos todas las cajas del inversor en ese día
-            for cbox in df_heatmap_raw.index:
-                nomenclatura = cbox.split(' ')[1]
-                hilos = cajas_especiales.get(nomenclatura, string_default)
-                i_units_dia.append(df_heatmap_raw.loc[cbox, dia] / hilos)
-            
-            # Sacamos la Referencia Local del día (P90)
-            p90_dia = pd.Series(i_units_dia).quantile(0.90)
-            
-            # Calculamos cuántos strings le faltan o sobran a cada caja
-            for cbox in df_heatmap_raw.index:
-                nomenclatura = cbox.split(' ')[1]
-                hilos = cajas_especiales.get(nomenclatura, string_default)
-                corriente_real = df_heatmap_raw.loc[cbox, dia]
-                corriente_esperada = p90_dia * hilos
+            if p90_dia > 0:
+                diferencia_A = corriente_real - corriente_esperada
+                # Dividimos la diferencia en Amperios por lo que aporta 1 string sano
+                desviacion_strings = diferencia_A / p90_dia
+            else:
+                desviacion_strings = 0
                 
-                if p90_dia > 0:
-                    diferencia_A = corriente_real - corriente_esperada
-                    # Dividimos la diferencia en Amperios por lo que aporta 1 string sano
-                    desviacion_strings = diferencia_A / p90_dia
-                else:
-                    desviacion_strings = 0
-                    
-                df_heatmap_strings.loc[cbox, dia] = round(desviacion_strings, 1)
-        
-        # Limpiamos los nombres del Eje Y para que sean más legibles
-        df_heatmap_strings.index = [c.replace('String', 'CBox') for c in df_heatmap_strings.index]
-        
-        # 2. Renderizado del Gráfico con Plotly
-        fig = px.imshow(
-            df_heatmap_strings,
-            text_auto=True,
-            aspect="auto",
-            color_continuous_scale="RdYlGn", 
-            zmin=-1.5,  # Un déficit de -1.5 strings o peor saturará en Rojo intenso
-            zmax=0.5,   # Un exceso de +0.5 strings saturará en Verde oscuro
-            labels=dict(x="Día Analizado", y="Combiner Box", color="Desv. (Strings)"),
-            title=f"Mapa de Desviación (En cantidad de Strings) - Inversor {inversor_seleccionado}"
-        )
-        
-        # Ajustamos el tamaño
-        fig.update_layout(height=600)
-        st.plotly_chart(fig, use_container_width=True)
+            df_heatmap_strings.loc[cbox, dia] = round(desviacion_strings, 1)
+    
+    # Limpiamos los nombres del Eje Y para que sean más legibles
+    df_heatmap_strings.index = [c.replace('String', 'CBox') for c in df_heatmap_strings.index]
+    
+    # 2. Renderizado del Gráfico con Plotly
+    import plotly.express as px
+    
+    fig = px.imshow(
+        df_heatmap_strings,
+        text_auto=True,
+        aspect="auto",
+        color_continuous_scale="RdYlGn", 
+        zmin=-1.5,  # Un déficit de -1.5 strings o peor saturará en Rojo intenso
+        zmax=0.5,   # Un exceso de +0.5 strings saturará en Verde oscuro
+        labels=dict(x="Día Analizado", y="Combiner Box", color="Desv. (Strings)"),
+        title=f"Mapa de Desviación (En cantidad de Strings) - Inversor {inversor_seleccionado}"
+    )
+    
+    # Ajustamos el tamaño
+    fig.update_layout(height=600)
+    st.plotly_chart(fig, use_container_width=True)

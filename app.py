@@ -7,6 +7,16 @@ import io
 st.set_page_config(page_title="Detección de Fusibles - SCADA Solar", layout="wide", page_icon="☀️")
 
 # --- BARRA LATERAL: GEMELO DIGITAL DE LA PLANTA ---
+st.sidebar.header("⚙️ Configuración de Planta")
+plant_name = st.sidebar.text_input("Nombre de la Planta", "Planta Roble")
+potencia_mw = st.sidebar.number_input("Potencia Total (MW)", min_value=1.0, value=9.0)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔌 Datos del Panel y Strings")
+string_default = st.sidebar.number_input("Strings por CBox (Estándar)", min_value=1, value=26)
+paneles_por_string = st.sidebar.number_input("Paneles por String", min_value=1, value=30)
+panel_imp = st.sidebar.number_input("Corriente Imp del Panel (A)", min_value=1.0, value=9.5)
+
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚠️ Cajas con Configuración Especial")
 st.sidebar.caption("Modifica la tabla para añadir cajas con una cantidad distinta de strings.")
@@ -32,12 +42,13 @@ for index, row in df_excepciones_editado.iterrows():
     cbox_id = str(row["ID Caja (Ej: 1-04)"]).strip()
     try:
         strings_val = int(row["N° Strings"])
-        # Evitamos agregar filas vacías si el usuario le da al "+" pero no escribe nada
         if cbox_id and cbox_id != "nan" and cbox_id != "None":
             cajas_especiales[cbox_id] = strings_val
     except (ValueError, TypeError):
-        pass # Ignoramos filas con errores tipográficos
+        pass
 
+# --- FUNCIONES MATEMÁTICAS CORE ---
+# (A partir de aquí dejas tu función def tara_sensores(df): tal como está)
 # --- FUNCIONES MATEMÁTICAS CORE ---
 
 def tara_sensores(df):

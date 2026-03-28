@@ -128,7 +128,7 @@ if archivos_subidos:
             
             # Tomamos el percentil 95 (P95) de cada caja como su "Corriente Pico Consistente"
             # (No usamos el máximo absoluto para evitar picos falsos o fallos de lectura de 1 segundo)
-            pico_dia = df_dia_generando[cbox_nombres].quantile(0.95).to_dict()
+            pico_dia = df_dia_generando[cbox_nombres].mean().to_dict()
             
             # Guardamos los picos de este día
             pico_dia['Dia'] = f"Día {i+1}"
